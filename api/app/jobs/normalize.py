@@ -102,3 +102,13 @@ def normalize(raws: list[str]) -> list[Skill]:
             seen.add(s.name)
             result.append(s)
     return result
+
+
+def dictionary() -> dict[str, list[str]]:
+    """{표준이름: [동의어...]} — 갭 분석에서 이력서 근거를 찾을 때 동의어까지 확인하려고 사용."""
+    return {canon: list(aliases or []) for canon, aliases in _load()[0].items()}
+
+
+def canonical(name: str) -> str:
+    """사용자가 입력한 기술명을 표준 이름으로 (PATCH /skills/스프링부트 → Spring Boot). 사전에 없으면 그대로."""
+    return _dict_match(name, _load()[1]) or name.strip()

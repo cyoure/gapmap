@@ -8,3 +8,6 @@ chromadb-client==1.0.0          # chroma 서버 이미지(1.0.0)와 버전을 �
 langchain-text-splitters>=0.3
 pypdf>=5.0
 pyyaml>=6.0
+
+# Phase 3 — 분석 결과 저장
+psycopg[binary]>=3.2

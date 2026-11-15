@@ -42,3 +42,19 @@ def search(query: str, k: int = 3) -> list[dict]:
         {"text": doc, "source": meta["source"], "score": round(1 - dist, 3)}
         for doc, meta, dist in zip(res["documents"][0], res["metadatas"][0], res["distances"][0])
     ]
+
+
+def all_chunks() -> list[dict]:
+    """이력서 청크 전체 (기술명 근거 확인용). 이력서는 작아서 전부 읽어도 부담이 없다."""
+    res = client().get_collection(COLLECTION).get(include=["documents", "metadatas"])
+    return [{"text": d, "source": m["source"]} for d, m in zip(res["documents"], res["metadatas"])]
+
+
+def nearest_many(queries: list[str]) -> list[dict]:
+    """질의 여러 개를 한 번에 임베딩해서 각각 가장 가까운 청크 1개."""
+    col = client().get_collection(COLLECTION)
+    res = col.query(query_embeddings=embedder.embed_documents(queries), n_results=1)
+    return [
+        {"text": docs[0], "source": metas[0]["source"], "score": round(1 - dists[0], 3)}
+        for docs, metas, dists in zip(res["documents"], res["metadatas"], res["distances"])
+    ]

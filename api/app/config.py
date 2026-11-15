@@ -6,3 +6,4 @@ OLLAMA_MODEL = os.environ["OLLAMA_MODEL"]
 EMBED_MODEL = os.environ["EMBED_MODEL"]
 CHROMA_URL = os.environ["CHROMA_URL"]
 RESUME_DIR = os.environ["RESUME_DIR"]
+DATABASE_URL = os.environ["DATABASE_URL"]  # compose가 POSTGRES_* 값으로 조립해서 넣어줌
