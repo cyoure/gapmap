@@ -1,0 +1,16 @@
+# 개인정보 — 절대 커밋 금지
+data/
+.env
+# 실명·수업 정보 포함 — 로컬에서만 사용
+CLAUDE.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
