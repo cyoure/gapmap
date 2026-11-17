@@ -1,13 +1,17 @@
-"""Ollama 연결. 토큰이 생성되는 대로 하나씩 내보내는 비동기 제너레이터."""
+"""Ollama 연결: 대화 모델 + 임베딩 모델."""
 from collections.abc import AsyncIterator
 
-from langchain_ollama import ChatOllama
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 from app import config
 
 
-def get_chat_model() -> ChatOllama:
-    return ChatOllama(base_url=config.OLLAMA_BASE_URL, model=config.OLLAMA_MODEL)
+def get_chat_model(**kwargs) -> ChatOllama:
+    """kwargs: temperature, num_ctx, format(JSON Schema) 등 용도별 옵션."""
+    return ChatOllama(base_url=config.OLLAMA_BASE_URL, model=config.OLLAMA_MODEL, **kwargs)
+
+
+embedder = OllamaEmbeddings(base_url=config.OLLAMA_BASE_URL, model=config.EMBED_MODEL)
 
 
 async def stream_answer(question: str) -> AsyncIterator[str]:

@@ -1,0 +1,61 @@
+# 기술명 사전 — 표준 이름: [동의어 목록]
+# 비교할 때 대소문자·공백·점·하이픈·슬래시는 무시한다 (Spring Boot = springboot = Spring-Boot)
+# 여기 없는 기술은 임베딩 유사도로 가장 가까운 표준 이름을 찾는다.
+
+# --- 언어 ---
+Java: [자바]
+Kotlin: [코틀린]
+Python: [파이썬]
+JavaScript: [JS, 자바스크립트]
+TypeScript: [TS, 타입스크립트]
+Go: [Golang, 고랭]
+SQL: []
+
+# --- 백엔드 프레임워크 ---
+Spring Framework: [Spring, 스프링]
+Spring Boot: [스프링부트, 스프링 부트]
+Spring Data JPA: [스프링 데이터 JPA]
+Spring Security: [스프링 시큐리티]
+Spring Batch: [스프링 배치]
+Spring Cloud: [스프링 클라우드]
+JPA: [Java Persistence API]
+Hibernate: [하이버네이트]
+QueryDSL: [쿼리DSL]
+MyBatis: [마이바티스, iBatis]
+Node.js: [Node, 노드]
+NestJS: [Nest]
+Django: [장고]
+FastAPI: []
+
+# --- 데이터베이스 ---
+MySQL: [마이SQL]
+PostgreSQL: [Postgres, 포스트그레스]
+Oracle: [Oracle DB, 오라클]
+MongoDB: [Mongo, 몽고DB]
+Redis: [레디스]
+Elasticsearch: [ES, 엘라스틱서치, Elastic Search]
+
+# --- 메시징 ---
+Kafka: [Apache Kafka, 카프카]
+RabbitMQ: [래빗MQ]
+
+# --- 인프라·DevOps ---
+Docker: [도커]
+Kubernetes: [k8s, 쿠버네티스]
+AWS: [Amazon Web Services, 아마존 웹 서비스]
+GCP: [Google Cloud, 구글 클라우드]
+Linux: [리눅스]
+Nginx: [엔진엑스]
+CI/CD: [CICD, 지속적 통합, 지속적 배포]
+GitHub Actions: [깃허브 액션]
+Jenkins: [젠킨스]
+Terraform: [테라폼]
+
+# --- 협업·기타 ---
+Git: [깃]
+REST API: [RESTful API, RESTful, REST]
+GraphQL: []
+gRPC: []
+MSA: [마이크로서비스, Microservice Architecture, 마이크로서비스 아키텍처]
+JUnit: [제이유닛]
+TDD: [테스트 주도 개발]
