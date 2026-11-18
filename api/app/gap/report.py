@@ -60,27 +60,44 @@ def render(a: JobAnalysis, gaps: list[SkillGap], score: float | None, order: lis
     return "\n".join(lines) + "\n"
 
 
-async def stream_report(text: str) -> AsyncIterator[str]:
-    yield "⏳ 공고 분석 중...\n\n"
-    try:
-        # analyze·DB·Chroma는 동기(blocking) 함수 → 스레드풀에서 실행해 이벤트 루프를 막지 않는다
-        a = await run_in_threadpool(analyze, text)
-        overrides = await run_in_threadpool(db.get_overrides)
-        gaps = await run_in_threadpool(find_gaps, a, overrides)
-    except Exception as e:
-        log.warning("gap report failed: %s", type(e).__name__)
-        hint = " (이력서를 먼저 POST /resume/ingest 했는지 확인하세요)" if "NotFound" in type(e).__name__ else ""
-        yield f"[오류] {type(e).__name__}: {e}{hint}\n"
-        return
+class Prepared:
+    """계산까지 끝난 분석 결과 (Phase 3 리포트와 Phase 4 에이전트가 함께 사용)."""
 
+    def __init__(self, a: JobAnalysis, gaps: list[SkillGap], score: float | None, order: list[str], job_id: int):
+        self.a, self.gaps, self.score, self.order, self.job_id = a, gaps, score, order, job_id
+        self.md = render(a, gaps, score, order)
+
+
+def _prepare(text: str) -> Prepared:
+    """공고 분석 → 근거 판정 → 점수·순서 계산 → DB 저장. LLM은 추출에만 쓰고 나머지는 함수."""
+    a = analyze(text)
+    gaps = find_gaps(a, db.get_overrides())
     missing = lambda kind: [g.name for g in gaps if g.kind == kind and g.status != HAVE]  # noqa: E731
     score = calc_match_score([g.status == HAVE for g in gaps if g.kind == "required"],
                              [g.status == HAVE for g in gaps if g.kind == "preferred"])
     order = study_order(missing("required"), missing("preferred"))
+    job_id = db.save_job(text, a.model_dump(mode="json"), [g.model_dump() for g in gaps], score)
+    return Prepared(a, gaps, score, order, job_id)
 
-    md = render(a, gaps, score, order)
-    job_id = await run_in_threadpool(
-        db.save_job, text, a.model_dump(mode="json"), [g.model_dump() for g in gaps], score)
+
+async def prepare(text: str) -> Prepared | str:
+    """성공하면 Prepared, 실패하면 사용자에게 보여줄 오류 문구."""
+    try:
+        # analyze·DB·Chroma는 동기(blocking) 함수 → 스레드풀에서 실행해 이벤트 루프를 막지 않는다
+        return await run_in_threadpool(_prepare, text)
+    except Exception as e:
+        log.warning("gap prepare failed: %s", type(e).__name__)
+        hint = " (이력서를 먼저 POST /resume/ingest 했는지 확인하세요)" if "NotFound" in type(e).__name__ else ""
+        return f"[오류] {type(e).__name__}: {e}{hint}\n"
+
+
+async def stream_report(text: str) -> AsyncIterator[str]:
+    yield "⏳ 공고 분석 중...\n\n"
+    p = await prepare(text)
+    if isinstance(p, str):
+        yield p
+        return
+    a, gaps, order, job_id, md = p.a, p.gaps, p.order, p.job_id, p.md
     yield md
 
     advice = ""

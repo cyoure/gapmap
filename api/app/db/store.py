@@ -80,3 +80,31 @@ def save_job(posting: str, analysis: dict, gaps: list[dict], score: float | None
 def save_report(job_id: int, report: str) -> None:
     with _conn() as c:
         c.execute("UPDATE jobs SET report = %s WHERE id = %s", (report, job_id))
+
+
+STATS_SQL = """
+SELECT s.name,
+       count(DISTINCT md5(j.posting))                                  AS jobs,      -- 이 기술을 요구한 공고 수
+       count(DISTINCT md5(j.posting)) FILTER (WHERE s.kind = 'required') AS required,  -- 그중 필수로 요구
+       coalesce(o.status, (array_agg(s.status ORDER BY j.created_at DESC))[1]) AS my_status  -- 직접 수정 > 최근 판정
+FROM job_skills s
+JOIN jobs j ON j.id = s.job_id
+LEFT JOIN skill_overrides o ON o.name = s.name
+GROUP BY s.name, o.status
+ORDER BY jobs DESC, required DESC, s.name
+LIMIT %s
+"""
+
+
+def stats(limit: int) -> dict:
+    """저장된 공고에서 자주 요구되는 기술 순위. 같은 공고를 여러 번 분석해도 한 번으로 센다(md5)."""
+    with _conn() as c:
+        total = c.execute("SELECT count(DISTINCT md5(posting)) FROM jobs").fetchone()[0]
+        rows = c.execute(STATS_SQL, (limit,)).fetchall()
+    return {
+        "total_jobs": total,
+        "skills": [
+            {"name": n, "jobs": cnt, "required": req, "percent": round(100 * cnt / total, 1), "my_status": st}
+            for n, cnt, req, st in rows
+        ],
+    }

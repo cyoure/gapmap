@@ -5,7 +5,10 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
+from pydantic import BaseModel
+
 from app import config
+from app.agent import run as agent
 from app.db import store as db
 from app.gap.report import stream_report
 from app.gap.schema import StatusUpdate
@@ -20,6 +23,7 @@ from app.rag import store
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.init_schema()  # 테이블이 없으면 생성 (compose healthcheck로 DB 준비 후에 시작됨)
+    await agent.init()  # GitHub MCP 도구 불러오기 + LangGraph 그래프 생성
     yield
 
 
@@ -96,3 +100,31 @@ def skill_reset(name: str):
     if not db.delete_override(canon):
         raise HTTPException(404, f"{canon}: 직접 수정한 기록이 없습니다.")
     return {"name": canon, "source": "resume"}
+
+
+class ChatRequest(BaseModel):
+    thread_id: str
+    message: str
+
+
+@app.post("/agent/report")
+async def agent_report(req: AnalyzeRequest):
+    """Phase 3 계산 결과 + ReAct 에이전트가 부족한 정보를 도구로 보충 (스트리밍)."""
+    thread_id = agent.new_thread_id()
+    return StreamingResponse(
+        agent.stream_agent_report(req.text, thread_id),
+        media_type="text/plain; charset=utf-8",
+        headers={"X-Thread-Id": thread_id},  # 후속 질문용
+    )
+
+
+@app.post("/agent/chat")
+async def agent_chat(req: ChatRequest):
+    """같은 thread_id로 후속 질문 — 앞의 공고·분석 내용을 기억한다 (LangGraph 메모리)."""
+    return StreamingResponse(agent.run(req.thread_id, req.message), media_type="text/plain; charset=utf-8")
+
+
+@app.get("/stats")
+def stats(limit: int = Query(10, ge=1, le=50)):
+    """저장된 공고들에서 자주 요구되는 기술 순위."""
+    return db.stats(limit)
