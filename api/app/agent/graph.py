@@ -4,7 +4,6 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from app import config
 from app.llm import get_chat_model
 
 SYSTEM = """당신은 취업 준비생의 채용공고 분석을 돕는 에이전트입니다. 반드시 한국어로만 답합니다.
@@ -16,14 +15,13 @@ SYSTEM = """당신은 취업 준비생의 채용공고 분석을 돕는 에이�
 - 도구가 필요하면 "확인하겠습니다"라고 말하거나 도구 이름을 글자로 쓰지 말고, 그 자리에서 바로 도구를 호출합니다.
 - 할 일을 모두 마친 뒤에만 최종 답변을 씁니다."""
 
-GITHUB_RULE = """- '근거 없음'인 필수 기술은 search_code 도구로 내 GitHub 코드에 쓴 흔적이 있는지 확인합니다.
-  검색어 예: "Kafka user:{user}" (반드시 user:{user}를 붙입니다)"""
+GITHUB_RULE = """- '근거 없음'인 필수 기술은 search_my_code 도구로 내 GitHub 코드에 쓴 흔적이 있는지 기술 이름 하나씩 확인합니다."""
 
 
 def build(tools: list):
     system = SYSTEM
-    if any(t.name == "search_code" for t in tools):
-        system += "\n" + GITHUB_RULE.format(user=config.GITHUB_USER)
+    if any(t.name == "search_my_code" for t in tools):
+        system += "\n" + GITHUB_RULE
 
     llm = get_chat_model(temperature=0, num_ctx=8192, num_predict=1024).bind_tools(tools)
 

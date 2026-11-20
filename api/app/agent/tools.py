@@ -18,7 +18,7 @@ from app.rag import store
 
 # thread_id → 그 대화에서 분석한 공고 (Prepared). 도구가 상태 목록을 LLM에게서 받지 않고 여기서 직접 읽는다
 CONTEXT: dict = {}
-EVIDENCE_TOOLS = {"search_resume", "search_code", "get_file_contents"}
+EVIDENCE_TOOLS = {"search_resume", "search_my_code"}
 
 
 @tool
@@ -46,7 +46,7 @@ def calc_match_score(
     newly_have: list[str], state: Annotated[dict, InjectedState], config: RunnableConfig
 ) -> str:
     """이 공고의 매칭 점수(0~100)를 다시 계산한다. 직접 계산하지 말고 반드시 이 도구를 쓴다.
-    newly_have: search_resume이나 search_code 결과에서 '새로' 근거를 찾은 '근거 없음' 기술 이름 목록 (없으면 [])."""
+    newly_have: search_resume이나 search_my_code 결과에서 '새로' 근거를 찾은 '근거 없음' 기술 이름 목록 (없으면 [])."""
     # state·config는 LangGraph가 넣어준다 (LLM에게 보이는 인자는 newly_have 하나뿐)
     p = CONTEXT.get(config["configurable"]["thread_id"])
     if p is None:

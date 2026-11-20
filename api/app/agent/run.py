@@ -13,6 +13,7 @@ from app.agent.mcp import load_github_tools
 from app.agent.tools import CONTEXT, LOCAL_TOOLS
 from app.db import store as db
 from app.gap.report import Prepared, prepare
+from app.gap.schema import HAVE
 
 log = logging.getLogger("uvicorn.error")
 
@@ -37,6 +38,8 @@ def _task(p: Prepared, posting: str) -> str:
         "preferred": {g.name: g.status for g in p.gaps if g.kind == "preferred"},
         "score": p.score,
     }
+    # 확인할 기술은 함수가 골라서 명시한다 (작은 모델은 '근거 없음'만 골라내는 데 자주 실패)
+    to_check = [g.name for g in p.gaps if g.kind == "required" and g.status != HAVE] or ["없음"]
     return f"""다음은 채용공고와, 함수로 계산한 분석 결과입니다.
 
 [분석 결과]
@@ -48,8 +51,9 @@ def _task(p: Prepared, posting: str) -> str:
 할 일 (필요한 도구를 스스로 골라 쓰세요):
 1. 공고에 회사 설명이 부족하면 web_search로 회사가 무엇을 하는 곳인지 찾아 2줄로 요약
 2. deadline이 있으면 calc_dday로 남은 날짜 확인
-3. '근거 없음'인 필수 기술은 search_resume(그리고 있으면 search_code)로 근거를 한 번 더 찾고,
-   새로 찾았을 때만 그 기술 이름을 newly_have에 넣어 calc_match_score로 점수 재계산
+3. 근거를 더 찾아볼 기술: {", ".join(to_check)} (이미 '보유'인 기술은 검색하지 않음)
+   각 기술 이름으로 search_resume(그리고 있으면 search_my_code)을 호출하고,
+   결과에 그 기술이 실제로 나왔을 때만 그 이름을 newly_have에 넣어 calc_match_score로 점수 재계산
 4. 마지막에 정리: 회사 요약 / 마감 D-day / 새로 찾은 근거 / 다음에 할 일 3가지"""
 
 
