@@ -1,9 +1,11 @@
 """FastAPI 라우터만 둔다. 로직은 다른 모듈에."""
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from pydantic import BaseModel
 
@@ -29,6 +31,15 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="GapMap", lifespan=lifespan)
+
+# 웹 화면(Phase 6): 별도 프론트 서버 없이 api가 정적 파일을 같이 내보낸다 → 같은 출처라 CORS 설정 불필요
+STATIC = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse(STATIC / "index.html")
 
 
 async def _ping(url: str) -> str:

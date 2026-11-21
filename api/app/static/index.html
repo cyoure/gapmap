@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GapMap — 채용공고 갭 분석</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>GapMap <small>채용공고 갭 분석 · 로컬 LLM</small></h1>
+    <span id="health" class="badge">상태 확인 중…</span>
+  </header>
+
+  <main>
+    <section class="left">
+      <h2>1. 공고 붙여넣기</h2>
+      <textarea id="posting" placeholder="채용공고 본문을 그대로 붙여넣으세요 (회사명·자격요건·우대사항·마감일)"></textarea>
+      <div class="row">
+        <button id="btn-report" title="POST /gap/report — 계산 결과 + AI 공부 가이드">빠른 리포트</button>
+        <button id="btn-agent" class="primary" title="POST /agent/report — ReAct 에이전트가 도구로 정보 보충">에이전트 분석</button>
+        <button id="btn-stop" class="ghost" disabled>중단</button>
+      </div>
+      <p class="note">🔒 이력서와 공고는 이 PC의 Ollama에서만 처리돼요. 회사 정보 검색(DuckDuckGo)에는 회사명만 쓰여요.</p>
+
+      <h2>누적 통계 <button id="btn-stats" class="ghost small">새로고침</button></h2>
+      <p class="note">저장된 공고에서 자주 요구되는 기술. 상태를 눌러 직접 고칠 수 있어요 (다음 리포트부터 반영).</p>
+      <div id="stats"></div>
+    </section>
+
+    <section class="right">
+      <h2>2. 리포트</h2>
+      <div id="output" class="output empty">공고를 넣고 버튼을 누르면 여기에 생성되는 대로 나와요.</div>
+      <form id="chat" class="row" hidden>
+        <input id="chat-input" placeholder="후속 질문 (예: Kafka는 뭐부터 공부하면 돼?)" autocomplete="off">
+        <button class="primary">질문</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="/static/markdown.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
