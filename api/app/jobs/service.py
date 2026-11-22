@@ -5,8 +5,9 @@ from datetime import date, datetime, timedelta, timezone
 
 from app.jobs.deadline import parse_deadline
 from app.jobs.extract import extract
-from app.jobs.normalize import normalize
-from app.jobs.schema import JobAnalysis
+from app.gap.evidence import _pattern
+from app.jobs.normalize import dictionary, normalize
+from app.jobs.schema import JobAnalysis, Skill
 
 log = logging.getLogger("uvicorn.error")
 
@@ -23,6 +24,19 @@ def _in_text(phrase: str | None, text: str) -> bool:
     return bool(phrase) and squash(phrase) in squash(text)
 
 
+def _grounded(skills: list[Skill], text: str) -> list[Skill]:
+    """원문에 실제로 나온 기술만 남긴다 (LLM이 지어낸 기술 제거).
+    LLM이 표기를 바꿨을 수 있어(스프링부트 → Spring Boot) 원문 표기·정규화 이름·동의어 중 하나만 있으면 인정."""
+    aliases = dictionary()
+    kept = []
+    for s in skills:
+        if any(_pattern(n).search(text) for n in [s.raw, s.name, *aliases.get(s.name, [])]):
+            kept.append(s)
+        else:
+            log.warning("job analyze: skill not found in posting, discarded: %s", s.raw)
+    return kept
+
+
 def analyze(text: str) -> JobAnalysis:
     ext, attempts = extract(text)
     if ext.deadline_raw and not _in_text(ext.deadline_raw, text):
@@ -30,10 +44,10 @@ def analyze(text: str) -> JobAnalysis:
         log.warning("job analyze: deadline_raw not found in posting, discarded")
         ext.deadline_raw = None
 
-    required = normalize(ext.required)
+    required = _grounded(normalize(ext.required), text)
     required_names = {s.name for s in required}
     # 필수와 우대에 같은 기술이 있으면 필수로만 친다
-    preferred = [s for s in normalize(ext.preferred) if s.name not in required_names]
+    preferred = [s for s in _grounded(normalize(ext.preferred), text) if s.name not in required_names]
 
     return JobAnalysis(
         company=ext.company,
