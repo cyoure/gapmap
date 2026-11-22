@@ -1,0 +1,43 @@
+{
+  "id": "gapmapWeeklySum1",
+  "name": "GapMap - 주간 요약 (월 09:00)",
+  "active": false,
+  "settings": { "timezone": "Asia/Seoul", "executionOrder": "v1" },
+  "nodes": [
+    {
+      "id": "b2000000-0000-4000-8000-000000000001",
+      "name": "매주 월 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": { "rule": { "interval": [{ "field": "weeks", "triggerAtDay": [1], "triggerAtHour": 9 }] } }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000002",
+      "name": "주간 요약 조회",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "parameters": { "url": "http://api:8000/alerts/weekly", "options": {} }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000003",
+      "name": "Discord 전송",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.message }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "매주 월 09:00": { "main": [[{ "node": "주간 요약 조회", "type": "main", "index": 0 }]] },
+    "주간 요약 조회": { "main": [[{ "node": "Discord 전송", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "id": "gapmapDeadline03",
+  "name": "GapMap - 마감 D-3 알림 (매일 09:00)",
+  "active": false,
+  "settings": { "timezone": "Asia/Seoul", "executionOrder": "v1" },
+  "nodes": [
+    {
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "매일 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": { "rule": { "interval": [{ "field": "days", "triggerAtHour": 9 }] } }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "마감 임박 공고 조회",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "parameters": { "url": "http://api:8000/alerts/deadlines?days=3", "options": {} }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "보낼 공고가 있나?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "a1000000-0000-4000-8000-0000000000c1",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Discord 전송",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, -100],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.message }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "매일 09:00": { "main": [[{ "node": "마감 임박 공고 조회", "type": "main", "index": 0 }]] },
+    "마감 임박 공고 조회": { "main": [[{ "node": "보낼 공고가 있나?", "type": "main", "index": 0 }]] },
+    "보낼 공고가 있나?": { "main": [[{ "node": "Discord 전송", "type": "main", "index": 0 }], []] }
+  }
+}

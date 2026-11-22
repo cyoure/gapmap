@@ -1,4 +1,6 @@
 """PostgreSQL: 공고·갭 분석 결과·사용자 수정 상태. ORM 없이 SQL 그대로."""
+from datetime import date
+
 import psycopg
 from psycopg.types.json import Jsonb
 
@@ -108,3 +110,36 @@ def stats(limit: int) -> dict:
             for n, cnt, req, st in rows
         ],
     }
+
+
+UPCOMING_SQL = """
+SELECT * FROM (
+    SELECT DISTINCT ON (md5(j.posting))            -- 같은 공고를 여러 번 분석했으면 최신 분석 1건만
+           j.company, j.deadline, j.score,
+           array(SELECT s.name FROM job_skills s
+                 LEFT JOIN skill_overrides o ON o.name = s.name
+                 WHERE s.job_id = j.id AND s.kind = 'required'
+                   AND coalesce(o.status, s.status) = '근거 없음'   -- 직접 수정 > 자동 판정
+                 ORDER BY s.name) AS missing
+    FROM jobs j
+    WHERE j.deadline BETWEEN %s AND %s
+    ORDER BY md5(j.posting), j.created_at DESC
+) t
+ORDER BY deadline, company
+"""
+
+
+def upcoming_jobs(start: date, end: date) -> list[dict]:
+    """마감일이 start~end(포함)인 공고. D-day 계산은 여기서 하지 않는다 (calc_dday 함수 담당)."""
+    with _conn() as c:
+        rows = c.execute(UPCOMING_SQL, (start, end)).fetchall()
+    return [{"company": co, "deadline": d, "score": s, "missing": m} for co, d, s, m in rows]
+
+
+def count_jobs_since(days: int) -> int:
+    """최근 days일 동안 분석한 공고 수 (같은 공고 중복 제외)."""
+    with _conn() as c:
+        return c.execute(
+            "SELECT count(DISTINCT md5(posting)) FROM jobs WHERE created_at >= now() - make_interval(days => %s)",
+            (days,),
+        ).fetchone()[0]

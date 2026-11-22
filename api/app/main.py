@@ -17,6 +17,7 @@ from app.jobs.normalize import canonical
 from app.jobs.schema import AnalyzeRequest, JobAnalysis
 from app.jobs.service import analyze
 from app.llm import stream_answer
+from app.notify import digest
 from app.rag import store
 
 
@@ -128,3 +129,16 @@ async def agent_chat(req: ChatRequest):
 def stats(limit: int = Query(10, ge=1, le=50)):
     """저장된 공고들에서 자주 요구되는 기술 순위."""
     return db.stats(limit)
+
+
+# --- n8n이 일정에 맞춰 호출 (Phase 5) ---
+@app.get("/alerts/deadlines")
+def alerts_deadlines(days: int = Query(3, ge=0, le=30)):
+    """마감이 오늘~days일 뒤인 공고 + Discord용 문구. 매일 실행."""
+    return digest.deadline_alert(days)
+
+
+@app.get("/alerts/weekly")
+def alerts_weekly():
+    """주간 요약 + Discord용 문구. 주 1회 실행."""
+    return digest.weekly_summary()

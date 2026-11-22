@@ -51,7 +51,25 @@ services:
         condition: service_healthy  # DB가 접속 가능해진 뒤에 api 시작 (시작 시 테이블 생성)
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.47.4
+    ports:
+      - "5679:5678"                 # 호스트 5678은 다른 프로젝트 n8n이 사용 중 → 5679로 노출
+    environment:
+      GENERIC_TIMEZONE: Asia/Seoul  # Schedule 트리거 "매일 9시"의 기준 시간대
+      TZ: Asia/Seoul
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}   # 워크플로우에서 {{ $env.DISCORD_WEBHOOK_URL }}로 읽음
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"         # 위 $env 접근 허용 (URL을 워크플로우 json에 넣지 않으려고)
+      N8N_DIAGNOSTICS_ENABLED: "false"
+    volumes:
+      - n8n_data:/home/node/.n8n    # 워크플로우·실행 기록 영속화
+      - ./n8n:/workflows:ro         # export한 워크플로우 json → import:workflow로 불러옴
+    depends_on:
+      - api                         # n8n은 DB가 아니라 api(http://api:8000)를 호출
+    restart: unless-stopped
+
 volumes:
   ollama_data:
   chroma_data:
   pg_data:
+  n8n_data:
