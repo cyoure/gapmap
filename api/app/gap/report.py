@@ -41,6 +41,9 @@ def render(a: JobAnalysis, gaps: list[SkillGap], score: float | None, order: lis
     lines.append(f"- 마감: {a.deadline or '정보 없음'}" + (f" (원문: {a.deadline_raw})" if a.deadline_raw else ""))
     lines.append(f"- **매칭 점수: {score if score is not None else '-'}점** "
                  f"(필수 {have(req)}/{len(req)} ×{REQUIRED_WEIGHT}, 우대 {have(pref)}/{len(pref)} ×{PREFERRED_WEIGHT})")
+    fixed = [s for s in a.required + a.preferred if s.match == "spelling"]
+    if fixed:
+        lines.append("- 🔤 오타 보정: " + ", ".join(f"{_cell(s.raw)} → {s.name}" for s in fixed))
     lines += ["", "## 기술별 상태", "", "| 구분 | 기술 | 상태 | 근거 |", "|---|---|---|---|"]
     for g in gaps:
         if g.source == "user":
@@ -53,6 +56,14 @@ def render(a: JobAnalysis, gaps: list[SkillGap], score: float | None, order: lis
             basis = ""
         mark = "✅" if g.status == HAVE else "❔"
         lines.append(f"| {KIND[g.kind]} | {_cell(g.name)} | {mark} {g.status} | {_cell(basis)} |")
+    if a.others:
+        lines += ["", "**📋 기타 요건 (기술 아님 · 점수 제외)**: " + ", ".join(_cell(o) for o in a.others),
+                  "— 경력·도메인 경험·자격증은 이력서·코드로 판단할 수 없어 직접 확인하세요."]
+    if a.unverified:
+        lines += ["", f"⚠️ **확인 필요 {len(a.unverified)}개 (점수 제외)**: "
+                  + ", ".join(_cell(s.raw) for s in a.unverified),
+                  "— 기술 사전에 없는 항목이에요. OCR 오타나 기술이 아닌 항목(자격증·직무명)일 수 있어요. "
+                  "실제 기술이면 `skills.yaml`에 추가하면 다음 분석부터 반영돼요."]
 
     lines += ["", "## 공부 순서", ""]
     kind_of = {g.name: KIND[g.kind] for g in gaps}
@@ -68,9 +79,17 @@ class Prepared:
         self.md = render(a, gaps, score, order)
 
 
+def _drop_hidden(a: JobAnalysis, hidden: set[str]) -> JobAnalysis:
+    """사용자가 통계에서 숨긴 이름(기술 아님)은 다음 분석부터 '확인 필요'로 보내 점수에서 뺀다."""
+    keep = lambda skills: [s for s in skills if s.name not in hidden]  # noqa: E731
+    dropped = [s for s in a.required + a.preferred if s.name in hidden]
+    return a.model_copy(update={"required": keep(a.required), "preferred": keep(a.preferred),
+                                "unverified": a.unverified + dropped})
+
+
 def _prepare(text: str) -> Prepared:
     """공고 분석 → 근거 판정 → 점수·순서 계산 → DB 저장. LLM은 추출에만 쓰고 나머지는 함수."""
-    a = analyze(text)
+    a = _drop_hidden(analyze(text), set(db.hidden_skills()))
     gaps = find_gaps(a, db.get_overrides())
     missing = lambda kind: [g.name for g in gaps if g.kind == kind and g.status != HAVE]  # noqa: E731
     score = calc_match_score([g.status == HAVE for g in gaps if g.kind == "required"],

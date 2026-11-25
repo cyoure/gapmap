@@ -16,3 +16,6 @@ GITHUB_USER = os.environ.get("GITHUB_USER", "")
 GITHUB_EXCLUDE_REPOS = [r.strip() for r in os.environ.get("GITHUB_EXCLUDE_REPOS", "").split(",") if r.strip()]
 # 코드 근거로 함께 볼 팀 저장소 (owner/repo). org 전체가 아니라 내가 참여한 저장소만
 GITHUB_TEAM_REPOS = [r.strip() for r in os.environ.get("GITHUB_TEAM_REPOS", "").split(",") if r.strip()]
+
+# 이미지 공고 OCR — Tesseract 언어 (한국어+영어: 기술명은 대부분 영어)
+OCR_LANG = os.environ.get("OCR_LANG", "kor+eng")

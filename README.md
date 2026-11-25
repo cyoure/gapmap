@@ -60,6 +60,7 @@ curl -X POST http://localhost:8000/resume/ingest      # 이력서 → 벡터 적
 
 ### 2. 사용
 - 웹 화면: **http://localhost:8000** — 공고 붙여넣기 → `빠른 리포트` 또는 `에이전트 분석`
+- 복사가 안 되는 공고: 캡처(`Win+Shift+S`) 후 입력창에 `Ctrl+V`, 또는 `📷 이미지·PDF`로 올리기 → 추출된 글자를 확인·수정한 뒤 분석
 - API 문서: http://localhost:8000/docs
 
 ### 3. n8n 알림 (선택)
@@ -78,12 +79,14 @@ http://localhost:5679 에서 계정 생성 → 워크플로우 열기 → `Execu
 | GET | `/chat?q=` | 단순 대화 (스트리밍) |
 | POST | `/resume/ingest` | `data/resume/` → Chroma `resume` 컬렉션 |
 | GET | `/resume/search?q=` | 이력서 의미 검색 |
-| POST | `/jobs/analyze` | 공고 → `{company, required[], preferred[], deadline}` |
+| POST | `/jobs/analyze` | 공고 → `{company, required[], preferred[], deadline}` + `others[]`(경력·자격증 등 기술 아닌 요건) · `unverified[]`(사전에 없는 항목) |
+| POST | `/jobs/ocr` | 복사가 안 되는 공고(이미지·PDF) → 텍스트 (Tesseract, 로컬). 사용자가 확인·수정 후 분석 |
 | POST | `/gap/report` | 보유/근거 없음 표 + 점수 + 공부 순서 + AI 가이드 (스트리밍, 저장) |
 | POST | `/agent/report` | 위 결과 + ReAct 에이전트가 도구로 보충 (스트리밍, `X-Thread-Id` 헤더) |
 | POST | `/agent/chat` | `{thread_id, message}` 후속 질문 |
 | PATCH / DELETE | `/skills/{name}` | 기술 상태 직접 수정 / 자동 판정으로 되돌리기 |
-| GET | `/stats` | 저장된 공고에서 자주 요구되는 기술 순위 |
+| GET | `/stats` | 저장된 공고에서 자주 요구되는 기술 순위 (+ 숨긴 항목 목록) |
+| PUT / DELETE | `/hidden-skills/{name}` | 기술이 아닌 항목을 통계에서 숨기기 / 되돌리기 (다음 분석부터 점수에서도 제외) |
 | GET | `/alerts/deadlines?days=3`, `/alerts/weekly` | n8n용 알림 데이터 + Discord 문구 |
 
 ## 폴더 구조
@@ -114,4 +117,6 @@ docs/adr/          # 기술 결정·트러블슈팅 기록
 
 - 공고 추출에서 "~운영 경험" 같은 표현의 기술(예: Kubernetes)이나 "Git 협업 경험"을 놓칠 때가 있음
 - 답변에 중국어가 섞이거나 공부 가이드에서 같은 기술을 반복할 때가 있음 → 7b 비교 예정
+- 이미지 공고 OCR은 한글 제목을 틀릴 때가 있음(예: `자격요건` → 다른 글자) → 필수/우대 구분이 틀어질 수 있어 분석 전 확인 필요
+  - 기술명 오타는 철자 유사도로 사전 이름에 보정(`Dockor` → `Docker`), 사전에 없는 항목은 **확인 필요**로 분리해 점수·통계에서 제외
 - 알림의 매칭 점수는 분석 시점 값이라, 나중에 상태를 직접 고쳐도 점수는 그대로 (근거 없음 목록은 반영됨)

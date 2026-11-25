@@ -16,3 +16,8 @@ psycopg[binary]>=3.2
 langgraph>=1.0
 langchain-mcp-adapters>=0.1
 ddgs>=9.0
+
+# Phase 6 — 이미지·PDF 공고 OCR
+pytesseract>=0.3.13
+pillow>=10.0
+python-multipart>=0.0.9         # FastAPI 파일 업로드(UploadFile)에 필요

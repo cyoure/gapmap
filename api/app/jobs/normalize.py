@@ -1,6 +1,7 @@
-"""기술명 정규화: ① skills.yaml 사전 → ② 없으면 Chroma `skills` 컬렉션에서 임베딩 유사도."""
+"""기술명 정규화: ① skills.yaml 사전 → ② 철자 유사도(오타 보정) → ③ Chroma `skills` 컬렉션에서 임베딩 유사도."""
 import hashlib
 import re
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import yaml
@@ -15,6 +16,12 @@ COLLECTION = "skills"
 # 무관한 기술 최고 0.663(Excel), 올바른 매칭 최저 0.751(Kafka Streams) → 그 사이
 THRESHOLD = 0.75
 
+# 철자 유사도 — OCR·오타는 "글자" 단위 오류라 의미를 보는 임베딩으로는 못 잡는다 (Dockor → 0.643, 기준 미달).
+# 측정값(2026-11-25): 사전 안의 서로 다른 기술끼리 최고 0.762(springboot↔springbatch),
+# OCR 오타 최저 0.8(Redls→Redis) → 0.8. 짧은 이름은 한 글자 차이로 다른 기술이 되므로(Go, Vue) 4글자 이상만
+SPELLING_THRESHOLD = 0.8
+SPELLING_MIN_LEN = 4
+
 
 def _key(name: str) -> str:
     """비교용 키: 대소문자·공백·점·하이픈·슬래시·밑줄 무시."""
@@ -25,6 +32,26 @@ def _dict_match(raw: str, lookup: dict) -> str | None:
     """사전 매칭. 실패하면 끝의 버전 숫자를 떼고 한 번 더 (SpringBoot3 → springboot, Java 17 → java)."""
     key = _key(raw)
     return lookup.get(key) or lookup.get(re.sub(r"\d+$", "", key))
+
+
+def _spelling_match(raw: str, lookup: dict) -> tuple[str, float] | None:
+    """사전에서 철자가 가장 비슷한 기술. 기준 이상일 때만 (표준이름, 유사도)."""
+    key = _key(raw)
+    if len(key) < SPELLING_MIN_LEN:
+        return None
+    score, canon = max((SequenceMatcher(None, key, k).ratio(), c) for k, c in lookup.items())
+    return (canon, round(score, 3)) if score >= SPELLING_THRESHOLD else None
+
+
+def spelled_in(name: str, text: str) -> bool:
+    """원문에 name과 철자가 비슷한 표기가 있나 (OCR 오타 'Sprlng Boot'를 LLM이 'Spring Boot'로 고쳐 뽑은 경우).
+    name과 같은 단어 수만큼 원문의 영문 단어를 이어 붙여 비교한다."""
+    key, n = _key(name), len(name.split())
+    if len(key) < SPELLING_MIN_LEN:
+        return False
+    words = re.findall(r"[A-Za-z0-9+#]+", text)
+    return any(SequenceMatcher(None, key, _key("".join(words[i:i + n]))).ratio() >= SPELLING_THRESHOLD
+               for i in range(len(words) - n + 1))
 
 
 # LLM이 덜 다듬은 표기의 꼬리말: "CI/CD 구성 경험" → "CI/CD"
@@ -81,6 +108,8 @@ def normalize(raws: list[str]) -> list[Skill]:
         for cand in _candidates(raw, lookup):
             if canon := _dict_match(cand, lookup):
                 skills.append(Skill(name=canon, raw=raw, match="dict"))
+            elif fixed := _spelling_match(cand, lookup):
+                skills.append(Skill(name=fixed[0], raw=raw, match="spelling", score=fixed[1]))
             else:
                 unknown.append((len(skills), raw, cand))
                 skills.append(None)  # 자리만 잡아두고 아래에서 채움 (원래 순서 유지)

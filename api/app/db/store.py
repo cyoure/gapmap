@@ -32,6 +32,11 @@ CREATE TABLE IF NOT EXISTS skill_overrides (
     status     TEXT NOT NULL CHECK (status IN ('보유', '근거 없음')),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- 사용자가 "기술이 아님"으로 숨긴 이름 (OCR 잡음·자격증 등). 행을 지우지 않고 숨겨서 되돌릴 수 있게
+CREATE TABLE IF NOT EXISTS hidden_skills (
+    name      TEXT PRIMARY KEY,
+    hidden_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 """
 
 
@@ -63,6 +68,21 @@ def delete_override(name: str) -> bool:
         return c.execute("DELETE FROM skill_overrides WHERE name = %s", (name,)).rowcount > 0
 
 
+def hidden_skills() -> list[str]:
+    with _conn() as c:
+        return [r[0] for r in c.execute("SELECT name FROM hidden_skills ORDER BY name").fetchall()]
+
+
+def hide_skill(name: str) -> None:
+    with _conn() as c:
+        c.execute("INSERT INTO hidden_skills (name) VALUES (%s) ON CONFLICT DO NOTHING", (name,))
+
+
+def unhide_skill(name: str) -> bool:
+    with _conn() as c:
+        return c.execute("DELETE FROM hidden_skills WHERE name = %s", (name,)).rowcount > 0
+
+
 def save_job(posting: str, analysis: dict, gaps: list[dict], score: float | None) -> int:
     """공고 + 기술별 상태를 한 트랜잭션으로 저장 (둘 중 하나만 들어가는 일이 없게)."""
     with _conn() as c, c.transaction():
@@ -92,6 +112,7 @@ SELECT s.name,
 FROM job_skills s
 JOIN jobs j ON j.id = s.job_id
 LEFT JOIN skill_overrides o ON o.name = s.name
+WHERE s.name NOT IN (SELECT name FROM hidden_skills)               -- 사용자가 숨긴 항목 제외
 GROUP BY s.name, o.status
 ORDER BY jobs DESC, required DESC, s.name
 LIMIT %s
@@ -105,6 +126,7 @@ def stats(limit: int) -> dict:
         rows = c.execute(STATS_SQL, (limit,)).fetchall()
     return {
         "total_jobs": total,
+        "hidden": hidden_skills(),
         "skills": [
             {"name": n, "jobs": cnt, "required": req, "percent": round(100 * cnt / total, 1), "my_status": st}
             for n, cnt, req, st in rows
@@ -120,6 +142,7 @@ SELECT * FROM (
                  LEFT JOIN skill_overrides o ON o.name = s.name
                  WHERE s.job_id = j.id AND s.kind = 'required'
                    AND coalesce(o.status, s.status) = '근거 없음'   -- 직접 수정 > 자동 판정
+                   AND s.name NOT IN (SELECT name FROM hidden_skills)
                  ORDER BY s.name) AS missing
     FROM jobs j
     WHERE j.deadline BETWEEN %s AND %s

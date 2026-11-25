@@ -23,9 +23,10 @@ textarea { width: 100%; height: 260px; resize: vertical; padding: 10px; font: in
            border: 1px solid var(--line); border-radius: 8px; }
 input { flex: 1; padding: 8px 10px; font: inherit; border: 1px solid var(--line); border-radius: 8px; }
 .row { display: flex; gap: 8px; margin-top: 10px; }
-button { padding: 8px 14px; font: inherit; border: 1px solid var(--line); border-radius: 8px; background: var(--card); cursor: pointer; }
+button, label.button { padding: 8px 14px; font: inherit; border: 1px solid var(--line); border-radius: 8px; background: var(--card); cursor: pointer; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-button.ghost { background: transparent; }
+button.ghost, label.button.ghost { background: transparent; }
+.row .note { margin: 0; align-self: center; }
 button.small { padding: 2px 8px; font-size: 12px; font-weight: normal; }
 button:disabled { opacity: .5; cursor: default; }
 .note { color: var(--muted); font-size: 13px; margin: 8px 0; }
@@ -42,7 +43,7 @@ button:disabled { opacity: .5; cursor: default; }
 .output hr { border: 0; border-top: 1px dashed var(--line); margin: 16px 0; }
 .tool { font: 12.5px/1.5 Consolas, monospace; color: var(--warn); background: #fffaf0; padding: 2px 8px; white-space: pre-wrap; word-break: break-all; }
 
-.stat { display: grid; grid-template-columns: 110px 1fr 90px 100px; align-items: center; gap: 8px; margin: 6px 0; font-size: 13.5px; }
+.stat { display: grid; grid-template-columns: 110px 1fr 90px 100px 28px; align-items: center; gap: 8px; margin: 2px -6px; padding: 3px 6px; font-size: 13.5px; }
 .stat .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stat .bar { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
 .stat .bar i { display: block; height: 100%; background: var(--accent); }
@@ -50,3 +51,17 @@ button:disabled { opacity: .5; cursor: default; }
 .status { padding: 2px 6px; font-size: 12px; }
 .status.have { color: var(--ok); }
 .status.none { color: var(--warn); }
+
+/* 숨기기 버튼: 평소엔 흐리게, 행에 마우스를 올리면 또렷하게, 버튼 위에선 빨간 원 */
+.stat .hide { width: 26px; height: 26px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%;
+              background: transparent; color: var(--muted); opacity: .35; transition: opacity .15s, background .15s, color .15s; }
+.stat:hover .hide, .stat .hide:focus-visible { opacity: 1; }
+.stat .hide:hover { background: #fdecec; color: #c53030; }
+.stat:hover { background: var(--bg); border-radius: 6px; }
+
+/* 숨긴 항목: 둥근 칩, 누르면 다시 보이기 */
+.hidden-list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.hidden-list .note { margin: 0 4px 0 0; width: 100%; }
+.unhide { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; font-size: 12px; border-radius: 999px;
+          color: var(--muted); background: var(--bg); text-decoration: line-through; text-decoration-color: #c5c9d1; transition: all .15s; }
+.unhide:hover { color: var(--accent); border-color: var(--accent); background: #eef3fe; text-decoration: none; }

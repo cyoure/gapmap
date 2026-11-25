@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -16,6 +16,7 @@ from app.gap.report import stream_report
 from app.gap.schema import StatusUpdate
 from app.jobs.extract import ExtractionError
 from app.jobs.normalize import canonical
+from app.jobs.ocr import OcrError, extract_text
 from app.jobs.schema import AnalyzeRequest, JobAnalysis
 from app.jobs.service import analyze
 from app.llm import stream_answer
@@ -90,6 +91,16 @@ def jobs_analyze(req: AnalyzeRequest):
         raise HTTPException(502, str(e))
 
 
+@app.post("/jobs/ocr")
+def jobs_ocr(file: UploadFile = File(...)):
+    """복사가 안 되는 공고(이미지·PDF) → 텍스트. 바로 분석하지 않고 사용자가 확인·수정 후 분석한다.
+    OCR은 CPU를 쓰는 동기 작업이라 def → 스레드풀에서 실행 (스트리밍 중인 다른 요청을 막지 않음)."""
+    try:
+        return extract_text(file.filename or "", file.file.read())
+    except OcrError as e:
+        raise HTTPException(400, str(e))
+
+
 @app.post("/gap/report")
 async def gap_report(req: AnalyzeRequest):
     """공고 → 보유/근거 없음 표 + 점수 + 공부 순서 + AI 공부 가이드 (스트리밍, postgres 저장)."""
@@ -112,6 +123,21 @@ def skill_reset(name: str):
     if not db.delete_override(canon):
         raise HTTPException(404, f"{canon}: 직접 수정한 기록이 없습니다.")
     return {"name": canon, "source": "resume"}
+
+
+# 통계에서 이상한 항목(OCR 잡음·자격증 등) 숨기기. 지우지 않고 숨김 목록에 넣어서 되돌릴 수 있다
+@app.put("/hidden-skills/{name:path}")
+def skill_hide(name: str):
+    """통계·마감 알림에서 빼고, 다음 분석부터 점수에서도 뺀다 (기존 공고 데이터는 그대로)."""
+    db.hide_skill(name.strip())
+    return {"name": name.strip(), "hidden": True}
+
+
+@app.delete("/hidden-skills/{name:path}")
+def skill_unhide(name: str):
+    if not db.unhide_skill(name.strip()):
+        raise HTTPException(404, f"{name}: 숨긴 기록이 없습니다.")
+    return {"name": name.strip(), "hidden": False}
 
 
 class ChatRequest(BaseModel):
